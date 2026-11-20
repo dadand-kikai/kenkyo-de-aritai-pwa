@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#0c0f14">
+  <meta name="color-scheme" content="dark">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="description" content="一日一問、今日の自分を静かに振り返るアプリ">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon-180.png">
+  <link rel="stylesheet" href="/styles.css">
+  <title>謙虚でありたい</title>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand-mark" aria-hidden="true">謙</div>
+    <div><p class="eyebrow">A QUIET DAILY PAUSE</p><h1>謙虚でありたい</h1></div>
+  </header>
+  <main id="app" tabindex="-1"><div class="loading">今日の問いを整えています…</div></main>
+  <nav class="bottom-nav" aria-label="メインメニュー">
+    <a href="#today" data-route="today"><span>◉</span>今日</a>
+    <a href="#history" data-route="history"><span>◌</span>これまで</a>
+    <a href="#settings" data-route="settings"><span>⚙</span>設定</a>
+  </nav>
+  <div id="toast" role="status" aria-live="polite"></div>
+  <script src="/config.js"></script>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

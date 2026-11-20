@@ -1,0 +1,17 @@
+name = "kenkyo-notifications"
+main = "src/index.js"
+compatibility_date = "2026-11-20"
+workers_dev = true
+
+[vars]
+ALLOWED_ORIGIN = "https://REPLACE_WITH_PAGES_DOMAIN.pages.dev"
+APP_URL = "https://REPLACE_WITH_PAGES_DOMAIN.pages.dev"
+ONESIGNAL_APP_ID = "REPLACE_WITH_ONESIGNAL_APP_ID"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "kenkyo-notifications"
+database_id = "REPLACE_WITH_D1_DATABASE_ID"
+
+[triggers]
+crons = ["*/15 * * * *"]
