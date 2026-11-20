@@ -32,21 +32,42 @@ function formatJapaneseDate(date = new Date()) {
   return new Intl.DateTimeFormat("ja-JP", { month: "long", day: "numeric", weekday: "long" }).format(date);
 }
 
+function greeting(date = new Date()) {
+  const hour = date.getHours();
+  if (hour < 5) return "静かな夜ですね";
+  if (hour < 11) return "おはようございます";
+  if (hour < 17) return "少し、立ち止まりませんか";
+  return "今日も、おつかれさまでした";
+}
+
+function categoryLabel(category) {
+  return { confidence: "自信との付き合い方", intellectual: "考えをひらく", respect: "相手を見つめる", listening: "耳を澄ます", gratitude: "支えに気づく", repair: "結び直す", learning: "学びの芽", self: "自分を認める", behavior: "小さな行動", meta: "見方を見つめる", anchor: "今日を見つめる" }[category] ?? "今日を見つめる";
+}
+
+function categorySymbol(category) {
+  return { listening: "≈", gratitude: "✦", repair: "↺", learning: "⌁", confidence: "△", respect: "◎", intellectual: "◇", self: "○", behavior: "→", meta: "…", anchor: "◌" }[category] ?? "◌";
+}
+
+function answerSymbol(answer) {
+  return { yes: "✦", no: "○", unsure: "≈" }[answer] ?? "○";
+}
+
 async function renderToday() {
   const history = await getAnswers();
   const today = localDateISO();
   const existing = history.find((row) => row.date === today);
   const question = existing ? questions.find((q) => q.id === existing.questionId) : selectQuestion(questions, history);
   const week = currentWeek(history);
+  const category = question.category ?? "anchor";
   app.innerHTML = `
-    <section class="hero"><p class="date">${formatJapaneseDate().toUpperCase()}</p><h2>今日の自分に、<br>静かな問いを。</h2><p>正解はありません。今の感覚にいちばん近いものを選んでください。</p></section>
-    <section class="card question-card"><span class="number">TODAY'S QUESTION</span><div class="question">${escapeHtml(question.text)}</div></section>
-    <div class="choices" aria-label="回答を選択">
-      ${ANSWERS.map((answer) => `<button class="choice ${existing?.answer === answer ? "selected" : ""}" data-answer="${answer}" ${existing ? "disabled" : ""}><span>${answerLabel(answer)}</span><span>${existing?.answer === answer ? "✓" : "○"}</span></button>`).join("")}
-    </div>
-    ${existing ? `<p class="notice">今日は「${answerLabel(existing.answer)}」と記録しました。回答は1日1回です。また明日、ここで振り返りましょう。</p>` : ""}
-    <h3 class="section-title">今週の足あと</h3>
-    <section class="card"><div class="week">${week.days.map((day, i) => `<div class="day"><span>${weekdays[i]}</span><div class="dot ${day.answer ?? ""}">${day.answer ? "•" : ""}</div></div>`).join("")}</div></section>`;
+    <section class="hero"><p class="date">${formatJapaneseDate()}</p><h2>${greeting()}</h2><p>ひと呼吸おいて、今日の見方を確かめましょう。</p></section>
+    <section class="card question-card">
+      <div class="question-heading"><span class="question-motif">${categorySymbol(category)}</span><div><span class="number">今日の問い</span><span class="category">${categoryLabel(category)}</span></div></div>
+      <div class="question">${escapeHtml(question.text)}</div>
+      <p class="question-helper">正解はありません。いちばん近いものを選んでください。</p>
+      ${existing ? `<div class="answered-panel"><span class="answered-star">✦</span><strong>今日も、立ち止まって考えました。</strong><span class="answer-chip">今日の答え&nbsp; · &nbsp;${answerLabel(existing.answer)}</span></div>` : `<div class="choices" aria-label="回答を選択">${ANSWERS.map((answer) => `<button class="choice choice-${answer}" data-answer="${answer}"><span>${answerSymbol(answer)}&nbsp;&nbsp;${answerLabel(answer)}</span></button>`).join("")}</div>`}
+    </section>
+    <section class="card week-card"><h3 class="section-title">この7日間</h3><p>${week.answered ? `この7日間に、${week.answered}回立ち止まりました。` : "まだ記録はありません。今日からで大丈夫です。"}</p><div class="week">${week.days.map((day, i) => `<div class="day"><span>${weekdays[i]}</span><div class="dot ${day.answer ?? ""}">${day.answer ? "•" : ""}</div></div>`).join("")}</div></section>`;
   app.querySelectorAll("[data-answer]").forEach((button) => button.addEventListener("click", async () => {
     await saveAnswer({ date: today, questionId: question.id, answer: button.dataset.answer, answeredAt: new Date().toISOString() });
     showToast("今日の振り返りを保存しました");
@@ -57,9 +78,9 @@ async function renderToday() {
 async function renderHistory() {
   const history = (await getAnswers()).reverse();
   const week = currentWeek([...history].reverse());
-  app.innerHTML = `<section class="hero"><p class="date">YOUR REFLECTIONS</p><h2>これまでの足あと</h2><p>記録はこの端末の中だけに保存されています。</p></section>
-    <section class="card"><div class="setting-line"><div><strong>今週 ${week.answered}日</strong><p>できた ${week.counts.yes} ・ できなかった ${week.counts.no} ・ どちらとも ${week.counts.unsure}</p></div></div></section>
-    <h3 class="section-title">回答履歴</h3>
+  app.innerHTML = `<section class="hero"><h2>振り返りの小径</h2><p>答えた日を、良し悪しをつけずに眺めます。</p></section>
+    <section class="card week-card"><h3 class="section-title">${week.answered ? `今週、${week.answered}回振り返りました` : "今週は、まだ静かな余白です"}</h3><p>空いている日も、そのままで大丈夫です。</p><div class="week">${week.days.map((day, i) => `<div class="day"><span>${weekdays[i]}</span><div class="dot ${day.answer ?? ""}">${day.answer ? "•" : ""}</div></div>`).join("")}</div></section>
+    <h3 class="section-title section-heading">これまでの問い</h3>
     <section class="card">${history.length ? history.map((row) => {
       const question = questions.find((q) => q.id === row.questionId);
       return `<article class="history-row"><time>${escapeHtml(row.date)}</time><p>${escapeHtml(question?.text ?? row.questionId)}</p><span class="answer-chip">${answerLabel(row.answer)}</span></article>`;
@@ -175,15 +196,15 @@ async function renderSettings() {
   const time = (await getSetting("notificationTime")) ?? "21:30";
   let enabled = (await getSetting("notificationEnabled")) ?? false;
   const iosGuide = isIos() && !isStandalone() ? "iPhoneでは先にSafariの共有ボタンから「ホーム画面に追加」し、追加したアイコンから開いてください。" : "ブラウザのメニューからホーム画面へ追加できます。";
-  app.innerHTML = `<section class="hero"><p class="date">YOUR SPACE</p><h2>設定</h2><p>通知と、この端末に保存する記録を管理できます。</p></section>
-    <h3 class="section-title">毎日の通知</h3><section class="card">
+  app.innerHTML = `<section class="hero"><h2>心地よい距離に</h2><p>問いとの付き合い方を、ここで整えられます。</p></section>
+    <section class="card settings-card"><h3 class="section-title card-title">✦&nbsp; 毎日の通知</h3>
       <div class="setting"><div class="setting-line"><div><strong>通知を受け取る</strong><p>状態：${oneSignalBooting ? "通知サービスを準備中" : notificationStatus()}</p></div><label class="switch"><input id="notification-toggle" type="checkbox" ${enabled ? "checked" : ""} ${oneSignalBooting ? "disabled" : ""}><span></span></label></div></div>
       <div class="setting"><div class="setting-line"><div><strong>通知時刻</strong><p>15分単位で設定します</p></div><input id="notification-time" type="time" step="900" value="${time}"></div></div>
       <div class="setting"><strong>通知の停止と削除</strong><p>購読を解除すると、サーバー上の通知設定も削除します。</p><div class="button-row"><button id="unsubscribe" class="btn danger">通知購読を解除</button></div></div>
       ${!config.oneSignalAppId ? `<p class="notice">現在のローカル版には通知サービスの公開設定がまだ入っていません。アプリの回答・履歴・オフライン動作は確認できます。</p>` : ""}
     </section>
-    <h3 class="section-title">ホーム画面に追加</h3><section class="card"><p class="notice">${iosGuide}</p>${!isStandalone() ? `<button id="install" class="btn primary">ホーム画面に追加する</button>` : `<p>インストール済みです。</p>`}</section>
-    <h3 class="section-title">データ管理</h3><section class="card">
+    <section class="card settings-card"><h3 class="section-title card-title">◌&nbsp; ホーム画面</h3><p class="notice">${iosGuide}</p>${!isStandalone() ? `<button id="install" class="btn primary full-width">ホーム画面に追加する</button>` : `<p>インストール済みです。</p>`}</section>
+    <section class="card settings-card"><h3 class="section-title card-title">端末内のデータ</h3>
       <div class="setting"><strong>履歴の引っ越し</strong><p>回答履歴をJSONファイルとして保存・復元できます。ファイルはご自身で安全に保管してください。</p><div class="button-row"><button id="export" class="btn">エクスポート</button><button id="import-button" class="btn">インポート</button><input id="import-file" class="sr-only" type="file" accept="application/json"></div></div>
       <div class="setting"><strong>端末内データを削除</strong><p>回答履歴と設定をこの端末から消去します。元に戻せません。</p><div class="button-row"><button id="clear-data" class="btn danger">すべて削除</button></div></div>
       <div class="setting"><a class="btn" href="/privacy.html">プライバシーポリシー</a></div>
