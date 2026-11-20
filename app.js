@@ -8,6 +8,8 @@ let questions = [];
 let installPrompt = null;
 let toastTimer;
 let oneSignalPromise = null;
+let oneSignalInstance = null;
+let oneSignalBooting = Boolean(config.oneSignalAppId);
 
 function escapeHtml(value) {
   return String(value).replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[char]);
@@ -83,6 +85,7 @@ async function deviceCredentials() {
 
 async function oneSignal() {
   if (!config.oneSignalAppId) throw new Error("通知サービスは公開準備中です。");
+  if (oneSignalInstance) return oneSignalInstance;
   if (oneSignalPromise) return oneSignalPromise;
   let rejectLoad;
   oneSignalPromise = new Promise((resolve, reject) => {
@@ -90,12 +93,23 @@ async function oneSignal() {
     window.OneSignalDeferred = window.OneSignalDeferred || [];
     window.OneSignalDeferred.push(async (OneSignal) => {
       try {
-        await OneSignal.init({ appId: config.oneSignalAppId, safari_web_id: config.oneSignalSafariWebId, serviceWorkerParam: { scope: "/push/onesignal/" }, serviceWorkerPath: "/push/onesignal/OneSignalSDKWorker.js", notifyButton: { enable: false } });
+        if (!window.__KENKYO_ONESIGNAL_READY__) {
+          try {
+            await OneSignal.init({ appId: config.oneSignalAppId, safari_web_id: config.oneSignalSafariWebId, serviceWorkerParam: { scope: "/push/onesignal/" }, serviceWorkerPath: "push/onesignal/OneSignalSDKWorker.js", notifyButton: { enable: false }, welcomeNotification: { disable: true } });
+          } catch (error) {
+            if (!/already initialized/i.test(error?.message)) throw error;
+          }
+          window.__KENKYO_ONESIGNAL_READY__ = true;
+        }
+        oneSignalInstance = OneSignal;
         resolve(OneSignal);
-      } catch (error) { oneSignalPromise = null; reject(error); }
+      } catch (error) {
+        oneSignalPromise = null;
+        reject(error);
+      }
     });
   });
-  if (!document.querySelector('script[data-onesignal-sdk]')) {
+  if (!window.OneSignal && !document.querySelector('script[data-onesignal-sdk]')) {
     window.OneSignalDeferred = window.OneSignalDeferred || [];
     const script = document.createElement("script");
     script.src = "https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js";
@@ -107,16 +121,38 @@ async function oneSignal() {
   return oneSignalPromise;
 }
 
+async function waitForSubscriptionId(OneSignal, timeoutMs = 20000) {
+  const existing = OneSignal.User.PushSubscription.id;
+  if (existing) return existing;
+  return new Promise((resolve, reject) => {
+    let finished = false;
+    let poll;
+    let timeout;
+    const finish = (value, error) => {
+      if (finished) return;
+      finished = true;
+      clearInterval(poll);
+      clearTimeout(timeout);
+      try { OneSignal.User.PushSubscription.removeEventListener("change", onChange); } catch {}
+      if (error) reject(error); else resolve(value);
+    };
+    const currentId = (event) => event?.current?.id || OneSignal.User.PushSubscription.id;
+    const onChange = (event) => { const id = currentId(event); if (id) finish(id); };
+    try { OneSignal.User.PushSubscription.addEventListener("change", onChange); } catch {}
+    poll = setInterval(() => { const id = OneSignal.User.PushSubscription.id; if (id) finish(id); }, 250);
+    timeout = setTimeout(() => finish(null, new Error("通知購読の作成に時間がかかっています。通信状態を確認して、もう一度お試しください。")), timeoutMs);
+  });
+}
+
 async function syncSubscription(enabled) {
   if (!config.apiBase) throw new Error("通知APIは公開準備中です。");
-  const OneSignal = await oneSignal();
+  const OneSignal = oneSignalInstance || await oneSignal();
   if (enabled) {
     await OneSignal.Notifications.requestPermission();
     if (!OneSignal.Notifications.permission) throw new Error("通知が許可されていません。端末の設定をご確認ください。");
     await OneSignal.User.PushSubscription.optIn();
   }
-  const subscriptionId = OneSignal.User.PushSubscription.id;
-  if (!subscriptionId) throw new Error("通知購読を作成できませんでした。");
+  const subscriptionId = await waitForSubscriptionId(OneSignal);
   const credentials = await deviceCredentials();
   const time = (await getSetting("notificationTime")) ?? "21:30";
   const [hours, minutes] = time.split(":").map(Number);
@@ -141,7 +177,7 @@ async function renderSettings() {
   const iosGuide = isIos() && !isStandalone() ? "iPhoneでは先にSafariの共有ボタンから「ホーム画面に追加」し、追加したアイコンから開いてください。" : "ブラウザのメニューからホーム画面へ追加できます。";
   app.innerHTML = `<section class="hero"><p class="date">YOUR SPACE</p><h2>設定</h2><p>通知と、この端末に保存する記録を管理できます。</p></section>
     <h3 class="section-title">毎日の通知</h3><section class="card">
-      <div class="setting"><div class="setting-line"><div><strong>通知を受け取る</strong><p>状態：${notificationStatus()}</p></div><label class="switch"><input id="notification-toggle" type="checkbox" ${enabled ? "checked" : ""}><span></span></label></div></div>
+      <div class="setting"><div class="setting-line"><div><strong>通知を受け取る</strong><p>状態：${oneSignalBooting ? "通知サービスを準備中" : notificationStatus()}</p></div><label class="switch"><input id="notification-toggle" type="checkbox" ${enabled ? "checked" : ""} ${oneSignalBooting ? "disabled" : ""}><span></span></label></div></div>
       <div class="setting"><div class="setting-line"><div><strong>通知時刻</strong><p>15分単位で設定します</p></div><input id="notification-time" type="time" step="900" value="${time}"></div></div>
       <div class="setting"><strong>通知の停止と削除</strong><p>購読を解除すると、サーバー上の通知設定も削除します。</p><div class="button-row"><button id="unsubscribe" class="btn danger">通知購読を解除</button></div></div>
       ${!config.oneSignalAppId ? `<p class="notice">現在のローカル版には通知サービスの公開設定がまだ入っていません。アプリの回答・履歴・オフライン動作は確認できます。</p>` : ""}
@@ -155,7 +191,7 @@ async function renderSettings() {
 
   app.querySelector("#notification-toggle").addEventListener("change", async (event) => {
     event.target.disabled = true;
-    try { await syncSubscription(event.target.checked); enabled = event.target.checked; showToast(event.target.checked ? "通知を有効にしました" : "通知を停止しました"); }
+    try { await syncSubscription(event.target.checked); enabled = event.target.checked; showToast(event.target.checked ? "通知を有効にしました" : "通知を停止しました"); await renderSettings(); }
     catch (error) { event.target.checked = !event.target.checked; showToast(error.message); }
     event.target.disabled = false;
   });
@@ -190,5 +226,12 @@ async function render() {
 window.addEventListener("beforeinstallprompt", (event) => { event.preventDefault(); installPrompt = event; });
 window.addEventListener("hashchange", render);
 if ("serviceWorker" in navigator) window.addEventListener("load", () => navigator.serviceWorker.register("/sw.js"));
+
+if (config.oneSignalAppId) {
+  oneSignal().catch((error) => console.warn("OneSignal preparation failed", error)).finally(() => {
+    oneSignalBooting = false;
+    if (route() === "settings") renderSettings();
+  });
+}
 
 fetch("/questions.json").then((response) => { if (!response.ok) throw new Error("質問データを読み込めませんでした。"); return response.json(); }).then((data) => { questions = data; return render(); }).catch((error) => { app.innerHTML = `<div class="empty">${escapeHtml(error.message)}</div>`; });
