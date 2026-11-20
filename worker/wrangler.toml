@@ -4,14 +4,14 @@ compatibility_date = "2026-11-20"
 workers_dev = true
 
 [vars]
-ALLOWED_ORIGIN = "https://REPLACE_WITH_PAGES_DOMAIN.pages.dev"
-APP_URL = "https://REPLACE_WITH_PAGES_DOMAIN.pages.dev"
-ONESIGNAL_APP_ID = "REPLACE_WITH_ONESIGNAL_APP_ID"
+ALLOWED_ORIGIN = "https://kenkyo-de-aritai-pwa.pages.dev"
+APP_URL = "https://kenkyo-de-aritai-pwa.pages.dev"
+ONESIGNAL_APP_ID = "f494d61d-f21c-4588-8b72-1034500a06a0"
 
 [[d1_databases]]
 binding = "DB"
 database_name = "kenkyo-notifications"
-database_id = "REPLACE_WITH_D1_DATABASE_ID"
+database_id = "37cfb267-cce3-45e7-9a1d-4fc332130b84"
 
 [triggers]
 crons = ["*/15 * * * *"]

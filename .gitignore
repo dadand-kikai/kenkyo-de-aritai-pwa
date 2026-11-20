@@ -3,6 +3,7 @@
 worker/.dev.vars
 node_modules/
 coverage/
+dist/
 .DS_Store
 Thumbs.db
 

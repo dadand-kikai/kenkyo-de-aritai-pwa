@@ -90,7 +90,7 @@ async function oneSignal() {
     window.OneSignalDeferred = window.OneSignalDeferred || [];
     window.OneSignalDeferred.push(async (OneSignal) => {
       try {
-        await OneSignal.init({ appId: config.oneSignalAppId, serviceWorkerParam: { scope: "/push/onesignal/" }, serviceWorkerPath: "/push/onesignal/OneSignalSDKWorker.js", notifyButton: { enable: false } });
+        await OneSignal.init({ appId: config.oneSignalAppId, safari_web_id: config.oneSignalSafariWebId, serviceWorkerParam: { scope: "/push/onesignal/" }, serviceWorkerPath: "/push/onesignal/OneSignalSDKWorker.js", notifyButton: { enable: false } });
         resolve(OneSignal);
       } catch (error) { oneSignalPromise = null; reject(error); }
     });

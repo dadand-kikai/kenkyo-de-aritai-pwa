@@ -4,7 +4,11 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "build": "node scripts/build.mjs",
     "test": "node --test",
     "serve": "node scripts/serve.mjs"
+  },
+  "devDependencies": {
+    "wrangler": "^4.165.0"
   }
 }

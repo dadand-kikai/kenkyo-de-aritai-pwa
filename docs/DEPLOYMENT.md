@@ -39,7 +39,7 @@ window.KENKYO_CONFIG = Object.freeze({
 });
 ```
 
-Cloudflare PagesでGitHubリポジトリを接続し、Framework presetはNone、Build commandは空欄、Build output directoryは `/` を指定します。公開後、PagesのURLを `worker/wrangler.toml` の `ALLOWED_ORIGIN` と `APP_URL`、OneSignal Site URLへ反映し、Workerを再デプロイします。
+Cloudflare PagesでGitHubリポジトリを接続し、Framework presetはNone、Build commandは `npm run build`、Build output directoryは `dist` を指定します。公開後、PagesのURLを `worker/wrangler.toml` の `ALLOWED_ORIGIN` と `APP_URL`、OneSignal Site URLへ反映し、Workerを再デプロイします。
 
 ## 4. 公開後の確認
 
