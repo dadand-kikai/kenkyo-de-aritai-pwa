@@ -59,7 +59,7 @@ export function currentWeek(history, today = new Date()) {
 }
 
 export function answerLabel(answer) {
-  return { yes: "できた", no: "できなかった", unsure: "どちらともいえない" }[answer] ?? "";
+  return { yes: "あった", no: "なかった", unsure: "わからない" }[answer] ?? "";
 }
 
 export function validateBackup(value) {
